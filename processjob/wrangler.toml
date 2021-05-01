@@ -1,0 +1,13 @@
+name = "processjob"
+type = "javascript"
+
+account_id = "adbbba9f3192397bbf24db22cb72f221"
+workers_dev = true
+routes = ["processjob.pacman.ai/*", "api.pacman.ai/processjob/*"]
+zone_id = "e07181c90966336c97acf0d0aaffb76d"
+target_type = "js"
+usage_model = "bundled"
+
+kv_namespaces = [
+  {binding = "QUEUE", id = "3c3240983cc54463bf013053215b0426"},
+]

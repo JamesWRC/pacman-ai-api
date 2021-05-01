@@ -1,0 +1,16 @@
+name = "teams"
+type = "javascript"
+
+account_id = "adbbba9f3192397bbf24db22cb72f221"
+workers_dev = true
+routes = ["job.pacman.ai/*", "api.pacman.ai/job/*"]
+zone_id = "e07181c90966336c97acf0d0aaffb76d"
+target_type = "js"
+usage_model = "bundled"
+
+kv_namespaces = [
+  {binding = "DEBUG", id = "fe8bc73357c24d2ea49f8416639a1c75"},
+  {binding = "QUEUE", id = "3c3240983cc54463bf013053215b0426"},
+]
+
+vars = { QUEUE_BROKER_PASS = "HW5S2][uD**xt\\6U" }
