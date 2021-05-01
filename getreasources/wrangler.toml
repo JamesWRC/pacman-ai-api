@@ -1,0 +1,12 @@
+name = "getresources"
+type = "javascript"
+
+account_id = "adbbba9f3192397bbf24db22cb72f221"
+workers_dev = true
+routes = ["getresources.pacman.ai/*", "api.pacman.ai/getresources/*"]
+zone_id = "e07181c90966336c97acf0d0aaffb76d"
+target_type = "js"
+usage_model = "bundled"
+
+
+vars = { PACMAN_AI_GAMECODE = "5e5a3ad4b0f842dc1f26fa251611b339979b7349", PACMAN_AI_RUNNER_CODE = "658744979f5eed7f4f6ca70a4cf6d7f2a4b0719f" }
