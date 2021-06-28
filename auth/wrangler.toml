@@ -1,0 +1,13 @@
+name = "auth"
+type = "javascript"
+
+account_id = "adbbba9f3192397bbf24db22cb72f221"
+workers_dev = true
+routes = ["api.pacman.ai/auth*", "api.pacman.ai/auth/*", "auth.pacman.ai/*"]
+zone_id = "e07181c90966336c97acf0d0aaffb76d"
+target_type = "js"
+usage_model = "bundled"
+
+kv_namespaces = [
+  {binding = "LICENSE", id = "68ee03af488842159a98fdff93c38d50"}
+]

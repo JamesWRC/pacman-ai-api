@@ -3,7 +3,7 @@ type = "javascript"
 
 account_id = "adbbba9f3192397bbf24db22cb72f221"
 workers_dev = true
-routes = ["api.pacman.ai/signup*", "api.pacman.ai/register*", "api.pacman.ai/updateTeam*"]
+routes = ["api.pacman.ai/signup*", "api.pacman.ai/register*", "api.pacman.ai/updateTeam*", "api.pacman.ai/getTeamNames*", "api.pacman.ai/authTeam*"]
 zone_id = "e07181c90966336c97acf0d0aaffb76d"
 target_type = "js"
 usage_model = "bundled"

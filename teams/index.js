@@ -21,8 +21,13 @@ addEventListener('fetch', event => {
   } else if (uri.includes("updateTeam") && event.request.method === 'POST') {
     event.respondWith(getAllTeams(event, false))
 
+  }else if (uri.includes("getTeamNames") && event.request.method === 'GET') {
+    event.respondWith(getAllTeams(event, false))
+
   } else if (uri.includes("signup") && event.request.method === 'POST') {
     event.respondWith(signup(event))
+  } else if (uri.includes("authTeam") && event.request.method === 'POST') {
+    event.respondWith(authenticate(event))
   } else {
     event.respondWith(new Response("Hello"))
   }
@@ -39,6 +44,45 @@ async function handleRequest(event) {
 
 // **************************************************
 
+async function authenticate(event) {
+
+  try{
+
+    const requestBody = await getBody(event.request)
+
+    const team = JSON.parse(await TEAMS.get(requestBody.teamName))
+
+    if(team.password === requestBody.teamPass){
+
+      return new Response(JSON.stringify({"success": true, "authenticated":true}), {
+        headers: {
+          "access-Control-Allow-Origin": "*",
+          "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+          "content-type": "application/json;charset=UTF-8",
+        }
+      })
+    }else{
+      return new Response(JSON.stringify({"success": true, "authenticated":false}), {
+        headers: {
+          "access-Control-Allow-Origin": "*",
+          "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+          "content-type": "application/json;charset=UTF-8",
+        }
+      })
+    }
+
+  }catch(err){
+    console.log(err)
+    return new Response(JSON.stringify({"success": false, "authenticated":false, "error": "An error occurred."}), {
+      headers: {
+        "access-Control-Allow-Origin": "*",
+        "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+        "content-type": "application/json;charset=UTF-8",
+      }
+    })
+  }
+
+}
 
 // **************************************************
 async function signup(event) {
@@ -67,18 +111,20 @@ async function signup(event) {
   // This is the temp teamname, the actual team name will be 'selectedName' in the body.
   const tempTeamName = requestBody.teamID
   const teamName = requestBody.selectedName
+  const gitToken = requestBody.gitToken
+  const gitInstallID = requestBody.gitInstallID
 
   // Check to see if the team exists, then add to cache
-  if (tempTeamName && !body["teamData"].hasOwnProperty(tempTeamName)) {
-    const valueAndMetadata = await TEAMS.getWithMetadata(tempTeamName)
-    const value = valueAndMetadata.value
-    const metadata = valueAndMetadata.metadata
+  // if (tempTeamName && !body["teamData"].hasOwnProperty(tempTeamName)) {
+  //   const valueAndMetadata = await TEAMS.getWithMetadata(tempTeamName)
+  //   const value = valueAndMetadata.value
+  //   const metadata = valueAndMetadata.metadata
 
-    // add item to cache
-    body["teamData"][tempTeamName] = metadata
+  //   // add item to cache
+  //   body["teamData"][tempTeamName] = metadata
 
-    await addAndUpdateCache(event, body);
-  }
+  //   await addAndUpdateCache(event, body);
+  // }
 
   // // Check to see if the team exists, then add to cache
   // if (teamName && !body["teamData"].hasOwnProperty(teamName)){
@@ -89,30 +135,56 @@ async function signup(event) {
   //     // add item to cache
   //     body["teamData"][teamName] = metadata
 
-  //     await addAndUpdateCache(event, body);
+  //     // await addAndUpdateCache(event, body);
+  // }
+  // try {
+  //   if (body["teamData"][tempTeamName]["gitHubAppInstallID"]) {
+  //     // Do nothing
+  //   }
+  // } catch (err) {
+  //   //  Return error of singup timedout
+  //   return new Response(JSON.stringify({ "success": false, "errorCode": 1003, "msg": "Your sign up session timed out. Try again.", }), {
+  //     headers: {
+  //       "access-Control-Allow-Origin": "*",
+  //       "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+  //       "content-type": "application/json;charset=UTF-8",
+  //     }
+  //   })
   // }
   try {
-    if (body["teamData"][tempTeamName]["gitHubAppInstallID"]) {
-      // Do nothing
-    }
-  } catch (err) {
-    //  Return error of singup timedout
-    return new Response(JSON.stringify({ "success": false, "errorCode": 1003, "msg": "Your sign up session timed out. Try again.", }), {
-      headers: {
-        "access-Control-Allow-Origin": "*",
-        "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
-        "content-type": "application/json;charset=UTF-8",
-      }
-    })
-  }
-  try {
     // Check the tempTeamName and see if the record exists and is waiting to be created and turned into a 'real' team
-    if (body["teamData"].hasOwnProperty(tempTeamName) && body["teamData"][tempTeamName]["gitHubAppInstallID"] === "none") {
+    const team = await TEAMS.get(teamName)
+    // if (body["teamData"].hasOwnProperty(tempTeamName) && body["teamData"][tempTeamName]["gitHubAppInstallID"] === "none") {
 
-      // Check that the sent team name 'selectedName' does not currently exist.
-      if (!body["teamData"].hasOwnProperty(teamName)) {
+      // Check that the sent team name  does not currently exist.
+      if (team === null) {
 
-        const createdTeamData = await createTeam(event, teamName, false, requestBody)
+        const createdTeamData = await createTeam(event, teamName, false, requestBody, gitToken, gitInstallID)
+        
+        var country = "N/A"
+        try{
+          country = event.request.cf.country 
+          }catch{
+      
+        }
+        var defaultMetaData = {
+          "createdAt": Date.now(),
+          "teamName": teamName,
+          "runningScore": 0,
+          "numberOfWins:": 0,
+          "numberOfLoses": 0,
+          "numberOfDraws": 0,
+          "numberOfGamesPlayed": 0,
+          "numberOfGamesSubmitted": 0,
+          "numberOfTournamentsPlayed": 0,
+          "lastGameTime": 0,
+          "gitHubAppInstallID": gitInstallID,
+          "gitToken": gitToken,
+          "gitHubUsername": "none",
+          "countryCode": country
+        }
+        body["teamData"][teamName] = defaultMetaData;
+        await addAndUpdateCache(event, body)
 
         return new Response(JSON.stringify(createdTeamData), {
           headers: {
@@ -128,7 +200,7 @@ async function signup(event) {
         console.log(teamName)
         console.log(body["teamData"][teamName])
         //  Return error of taken name
-        return new Response(JSON.stringify({ "success": false, "errorCode": 1001, "msg": "Team name '" + String(teamName) + "' is not available. Please try another team name.", }), {
+        return new Response(JSON.stringify({ "success": false, "errorCode": 1001, "msg": "Team name '" + String(teamName) + "' is not available. Please try another team name."}), {
           headers: {
             "access-Control-Allow-Origin": "*",
             "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
@@ -137,21 +209,21 @@ async function signup(event) {
         })
       }
 
-    } else {
-      //  Return error of taken name
-      return new Response(JSON.stringify({ "success": false, "errorCode": 1002, "msg": "There was an error signing up, please try again in a bit.", }), {
-        headers: {
-          "access-Control-Allow-Origin": "*",
-          "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
-          "content-type": "application/json;charset=UTF-8",
-        }
-      })
+    // } else {
+    //   //  Return error of taken name
+    //   return new Response(JSON.stringify({ "success": false, "errorCode": 1002, "msg": "There was an error signing up, please try again in a bit.", }), {
+    //     headers: {
+    //       "access-Control-Allow-Origin": "*",
+    //       "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+    //       "content-type": "application/json;charset=UTF-8",
+    //     }
+    //   })
 
-    }
+    // }
   } catch (err) {
     console.log("test err")
     console.log(err)
-    return new Response(JSON.stringify({ "success": false, "errorCode": 1002, "msg": "There was an error signing up, please try again in a bit.", }), {
+    return new Response(JSON.stringify({ "success": false, "errorCode": 1002, "msg": "There was an error signing up, please try again in a bit.", "team": teamName, "err":err}), {
       headers: {
         "access-Control-Allow-Origin": "*",
         "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
@@ -304,11 +376,21 @@ async function generateSession() {
 }
 
 // Will create a new team and passback a pre generated password.
-async function createTeam(event, name, isTeampTeam, gitHubData) {
+async function createTeam(event, name, isTeampTeam, gitHubData, gitToken, gitInstallID) {
+  // create team with pass
+  const hash = await generateSession()
+  const generatedPassword = String(hash).substring(0, generatedTeamPasswordMaxLength);
+
+  var country = "N/A"
+  try{
+    country = event.request.cf.country 
+    }catch{
+
+  }
 
   var metaData = {
     "createdAt": Date.now(),
-    "teamName": "tempTeamName",
+    "teamName": name,
     "runningScore": 0,
     "numberOfWins:": 0,
     "numberOfLoses": 0,
@@ -317,10 +399,12 @@ async function createTeam(event, name, isTeampTeam, gitHubData) {
     "numberOfGamesSubmitted": 0,
     "numberOfTournamentsPlayed": 0,
     "lastGameTime": 0,
-    "gitHubAppInstallID": "none",
+    "gitHubAppInstallID": gitInstallID,
+    "gitToken": gitToken,
     "gitHubUsername": "none",
-    "countryCode": event.request.cf.country
+    "countryCode": country
   }
+  
   var data = {
     "password": "temp"
   }
@@ -330,9 +414,6 @@ async function createTeam(event, name, isTeampTeam, gitHubData) {
     }
   } else {
     metaData.gitHubAppInstallID = gitHubData.gitHubInstallID
-    // create team with pass
-    const hash = await generateSession()
-    const generatedPassword = String(hash).substring(0, generatedTeamPasswordMaxLength);
 
     data = {
       "password": generatedPassword,
@@ -341,10 +422,10 @@ async function createTeam(event, name, isTeampTeam, gitHubData) {
   }
 
 
-  const team = await TEAMS.put(String(name), JSON.stringify(data), { expirationTtl: maxTempTeamTTL, metadata: metaData });
+  const team = await TEAMS.put(String(name), JSON.stringify(data), { metadata: metaData });
   console.log("zzzzzzzz")
   console.log(metaData)
-  return { "success": true, "teamCreated": true, "teamName": String(name) }
+  return { "success": true, "teamCreated": true, "teamName": String(name), "teamPass": generatedPassword }
 
 }
 
