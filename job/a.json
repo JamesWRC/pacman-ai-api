@@ -1,0 +1,28 @@
+{
+    "serverID": "202481599733117",
+    "sessionID": "02fdc45ae7d300f0a44ea898d131b3753bb576c0963aebf1fe14d4a2cf55fde6",
+    "completed": false,
+    "data": {
+        "runnerStatus": 0,
+        "organization": "DEFAULT",
+        "gameType": "normal",
+        "useTimeConstraints": true,
+        "logMsg": [
+            "Finding you an available runner in the server pool. This may take some time, depending on current demand. Please be patient and don't refresh the page - we will let you know the moment your game has been allocated!",
+            "Processing environment..."
+        ],
+        "gameResults": [],
+        "runningScore": 0,
+        "gameData": [
+            {
+                "redTeam": "james",
+                "blueTeam": "00000 this is a team",
+                "randomSeed": "false",
+                "map": "1337",
+                "numberOfGames": "3"
+            }
+        ]
+    },
+    "replayFile": "",
+    "errors": []
+}

@@ -19,15 +19,22 @@ addEventListener('fetch', event => {
 
     event.respondWith(checkteam(event))
   } else if (uri.includes("updateTeam") && event.request.method === 'POST') {
-    event.respondWith(getAllTeams(event, false))
+    event.respondWith(getAllTeams(event, false, false))
 
   }else if (uri.includes("getTeamNames") && event.request.method === 'GET') {
-    event.respondWith(getAllTeams(event, false))
+    event.respondWith(getAllTeams(event, true, true))
 
   } else if (uri.includes("signup") && event.request.method === 'POST') {
     event.respondWith(signup(event))
   } else if (uri.includes("authTeam") && event.request.method === 'POST') {
     event.respondWith(authenticate(event))
+  }  else if (uri.includes("githubAppWebHook") && event.request.method === 'POST') {
+    event.respondWith(gitHubAppHooks(event))
+  }  else if (uri.includes("gitHubInstallData") && event.request.method === 'GET') {
+    event.respondWith(getGitHubData(event))
+  }  else if (uri.includes("exchangeGitToken") && event.request.method === 'POST') {
+    event.respondWith(setGitUserToken(event))
+
   } else {
     event.respondWith(new Response("Hello"))
   }
@@ -99,7 +106,7 @@ async function signup(event) {
   var body = await getBody(cacheResponse)
 
   if (!body) {
-    const resp = await getAllTeams(event, true);
+    const resp = await getAllTeams(event, true, false);
     body = await getBody(resp)
   }
 
@@ -113,6 +120,8 @@ async function signup(event) {
   const teamName = requestBody.selectedName
   const gitToken = requestBody.gitToken
   const gitInstallID = requestBody.gitInstallID
+  const gitRepoSelected = requestBody.gitRepoSelected
+  const gitUsername = requestBody.gitUsername
 
   // Check to see if the team exists, then add to cache
   // if (tempTeamName && !body["teamData"].hasOwnProperty(tempTeamName)) {
@@ -159,7 +168,7 @@ async function signup(event) {
       // Check that the sent team name  does not currently exist.
       if (team === null) {
 
-        const createdTeamData = await createTeam(event, teamName, false, requestBody, gitToken, gitInstallID)
+        const createdTeamData = await createTeam(event, teamName, false, requestBody, gitToken, gitInstallID, gitRepoSelected, gitUsername)
         
         var country = "N/A"
         try{
@@ -180,7 +189,8 @@ async function signup(event) {
           "lastGameTime": 0,
           "gitHubAppInstallID": gitInstallID,
           "gitToken": gitToken,
-          "gitHubUsername": "none",
+          "gitRepo": gitRepoSelected,
+          "gitUsername": gitUsername,
           "countryCode": country
         }
         body["teamData"][teamName] = defaultMetaData;
@@ -268,7 +278,7 @@ async function addAndUpdateCache(event, dataToCache) {
   const a = await cache.put(new URL(teamDataCacheURL), cacheResponse.clone())
 }
 
-async function getAllTeams(event, forceRegen) {
+async function getAllTeams(event, forceRegen, showSensitiveData) {
   const teamDataCacheURL = "https://api.pacman.ai/getTeamCache"
   // Check to see if response has been cached before
   const cacheResponse = await cache.match(new URL(teamDataCacheURL))
@@ -284,6 +294,13 @@ async function getAllTeams(event, forceRegen) {
 
     console.log("returning cache")
     try {
+      if(!showSensitiveData){
+        Object.keys(body['teamData']).forEach(e => {
+          delete body['teamData'][e]['gitHubAppInstallID'];
+          delete body['teamData'][e]['gitToken'];
+
+        });
+      }
       return new Response(JSON.stringify(body), {
         headers: {
           "access-Control-Allow-Origin": "*",
@@ -324,23 +341,52 @@ async function getAllTeams(event, forceRegen) {
 
       } while (!teamListTemp.list_complete);
       // jsonify teamdata and cache
-      const jsonTeamList = JSON.stringify(teamsList);
-      const cacheResponse = new Response(jsonTeamList, {
+      var jsonTeamList = teamsList;
+      const cacheJsonTeamList = jsonTeamList;
+
+      // remove sensitive data
+      // console.log(JSON.stringify(jsonTeamList))
+      if(!showSensitiveData){
+
+        Object.keys(jsonTeamList['teamData']).forEach(e => {
+          try{
+          delete jsonTeamList['teamData'][e]['gitHubAppInstallID'];
+          delete jsonTeamList['teamData'][e]['gitToken'];
+          }catch(err){
+            console.log(err)
+          }
+
+        });
+      }
+
+      const cacheEditedResponse = new Response(JSON.stringify(jsonTeamList), {
         headers: {
           "access-Control-Allow-Origin": "*",
           "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
           "content-type": "application/json;charset=UTF-8",
         }
       })
+
+      const cacheResponse = new Response(JSON.stringify(cacheJsonTeamList), {
+        headers: {
+          "access-Control-Allow-Origin": "*",
+          "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+          "content-type": "application/json;charset=UTF-8",
+        }
+      })
+
+
       console.log("updating cache")
       const a = await cache.put(new URL(teamDataCacheURL), cacheResponse.clone())
       console.log(a)
       console.log("saved....")
       // console.log(jsonTeamList)
 
-      return cacheResponse;
+      return cacheEditedResponse;
 
     } catch (err) {
+      console.log("error")
+      console.log(err)
       return new Response(err)
     }
   }
@@ -376,7 +422,8 @@ async function generateSession() {
 }
 
 // Will create a new team and passback a pre generated password.
-async function createTeam(event, name, isTeampTeam, gitHubData, gitToken, gitInstallID) {
+async function createTeam(event, name, isTeampTeam, gitHubData, gitToken, gitInstallID, gitRepoSelected, gitUsername) {
+
   // create team with pass
   const hash = await generateSession()
   const generatedPassword = String(hash).substring(0, generatedTeamPasswordMaxLength);
@@ -401,7 +448,8 @@ async function createTeam(event, name, isTeampTeam, gitHubData, gitToken, gitIns
     "lastGameTime": 0,
     "gitHubAppInstallID": gitInstallID,
     "gitToken": gitToken,
-    "gitHubUsername": "none",
+    "gitRepo": gitRepoSelected,
+    "gitUsername": gitUsername,
     "countryCode": country
   }
   
@@ -413,11 +461,10 @@ async function createTeam(event, name, isTeampTeam, gitHubData, gitToken, gitIns
       "password": "temp"
     }
   } else {
-    metaData.gitHubAppInstallID = gitHubData.gitHubInstallID
+    metaData.gitHubAppInstallID = gitHubData.gitInstallID
 
     data = {
       "password": generatedPassword,
-      "test": gitHubData.gitHubInstallID
     }
   }
 
@@ -441,7 +488,7 @@ async function checkteam(event) {
     } while (team);
 
     // Since the team does not exist create a new temp one.
-    const createdTeamData = await createTeam(event, hash, true, null);
+    const createdTeamData = await createTeam(event, hash, true, null, null, null, null, null);
 
     return new Response(JSON.stringify(createdTeamData), {
       headers: {
@@ -453,5 +500,142 @@ async function checkteam(event) {
   } catch (err) {
     return new Response(err)
   }
+
+}
+
+
+async function gitHubAppHooks(event){
+
+  const url = new URL(event.request.url)
+  console.log(url.toString())
+  // if(url.toString().includes('secret=NotSoSecretSecret')){
+    // const recievedSHA256Signature = event.request.headers.get('X-Hub-Signature-256');
+    // if(recievedSHA256Signature !== ""){
+      const respBody = await getBody(event.request);
+      const action = respBody['action'];
+      const installID = respBody['installation']['id'];
+      if(action === "created"){
+        await GITHUB.put(String(installID), JSON.stringify(respBody));
+
+        return new Response(JSON.stringify({"success": false, "teamCreated": true}), {
+          headers: {
+            "access-Control-Allow-Origin": "*",
+            "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+            "content-type": "application/json;charset=UTF-8",
+          },
+          status: 201,
+        })
+
+      }else if(action === "deleted"){
+        const teamCache = await getAllTeams(event, true, true)
+        const teamData = await getBody(teamCache)
+        var tdata = "None"
+
+        for(team in teamData['teamData']){
+          if(String(teamData['teamData'][team]['gitHubAppInstallID']) === String(installID)){
+            tdata = team
+            await TEAMS.delete(String(team))
+            await GITHUB.delete(String(installID))
+            
+          }
+        }
+
+      return new Response(JSON.stringify({"success": true, "deleted Team": tdata}), {
+        headers: {
+          "access-Control-Allow-Origin": "*",
+          "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+          "content-type": "application/json;charset=UTF-8",
+        },
+        status: 202,
+      })
+
+    }
+  
+
+  return new Response(JSON.stringify({"error": 'Bad Auth, check docs.', 'a': action}), {
+    headers: {
+      "access-Control-Allow-Origin": "*",
+      "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+      "content-type": "application/json;charset=UTF-8",
+    },
+    status: 401,
+  })
+// }
+  // }
+}
+
+
+async function getGitHubData(event){
+  const bodyData = await getBody(event.request)
+  const gitHubData = await GITHUB.get(bodyData.gitInstallID);
+  var dataToSend = {"success": true, "gitData": JSON.parse(gitHubData)}
+
+  if(!gitHubData){
+    dataToSend = {"success": false, "gitData": JSON.stringify({})}
+  }
+
+  return new Response(JSON.stringify(dataToSend), {
+    headers: {
+      "access-Control-Allow-Origin": "*",
+      "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+      "content-type": "application/json;charset=UTF-8",
+    },
+    status: 200,
+  })
+}
+
+
+async function setGitUserToken(event){
+  const bodyData = await getBody(event.request)
+  const gitTokenRecieved = bodyData.gitCode;
+  const gitIntsallID = bodyData.gitInstallID;
+
+  const CLIENT_ID = PACMAN_AI_GIT_APP_CLIENT_ID
+  const CLIENT_SECRET = PACMAN_AI_GIT_APP_CLIENT_SECRET
+  const CODE = gitTokenRecieved
+  var shouldFecthGitData = false;
+
+  if(bodyData.getGitData === "repos"){
+    shouldFecthGitData = true
+  }
+
+
+  const url = `https://github.com/login/oauth/access_token?client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}&code=${CODE}`
+  const init = {
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": "PostmanRuntime/7.26.8",
+      'Accept': 'application/vnd.github.v3+json'
+    },
+    method: "POST"
+  }
+
+  const tokenExchangeResponse = await fetch(url, init);
+
+  const tokenExchangeBody = await getBody(tokenExchangeResponse);
+
+  var dataToReturn = {'success':true, 'tokenResponse': tokenExchangeBody};
+
+  if(shouldFecthGitData){
+    const teamGitData = JSON.parse(await GITHUB.get(gitIntsallID));
+    dataToReturn = {'success':true, 'tokenResponse': tokenExchangeBody, 'userRepos': teamGitData.repositories, 'gitUsername': teamGitData.installation.account.login};
+  }
+
+  if('access_token' in dataToReturn.tokenResponse){
+    dataToReturn.success = true
+  }else{
+    dataToReturn.success = false
+  }
+
+
+  return new Response(JSON.stringify(dataToReturn), {
+    headers: {
+      "access-Control-Allow-Origin": "*",
+      "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+      "content-type": "application/json;charset=UTF-8",
+    },
+    status: 200,
+  })
+
 
 }

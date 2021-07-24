@@ -3,11 +3,16 @@ type = "javascript"
 
 account_id = "adbbba9f3192397bbf24db22cb72f221"
 workers_dev = true
-routes = ["api.pacman.ai/signup*", "api.pacman.ai/register*", "api.pacman.ai/updateTeam*", "api.pacman.ai/getTeamNames*", "api.pacman.ai/authTeam*"]
+routes = ["api.pacman.ai/githubAppWebHook", "api.pacman.ai/exchangeGitToken", "api.pacman.ai/gitHubInstallData", "api.pacman.ai/signup*", "api.pacman.ai/register*", "api.pacman.ai/updateTeam*", "api.pacman.ai/getTeamNames*", "api.pacman.ai/authTeam*"]
 zone_id = "e07181c90966336c97acf0d0aaffb76d"
 target_type = "js"
 usage_model = "bundled"
 
+vars = { PACMAN_AI_GIT_APP_ID = "108842", PACMAN_AI_GIT_APP_CLIENT_ID = "Iv1.7e6f7bcf518ea8a9", PACMAN_AI_GIT_APP_CLIENT_SECRET = "d45934279215762490bd5080033b0edb07856a0e" }
+
+
 kv_namespaces = [
-  {binding = "TEAMS", id = "79309d4d11fb4f5ca3d6be5edca944d4"}
+  {binding = "TEAMS", id = "79309d4d11fb4f5ca3d6be5edca944d4"},
+  {binding = "GITHUB", id = "ba62cd854b2944c5aec0633197fc61e9"},
+  {binding = "DEBUG", id = "fe8bc73357c24d2ea49f8416639a1c75"}
 ]

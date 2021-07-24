@@ -10,7 +10,7 @@ usage_model = "bundled"
 
 kv_namespaces = [
   {binding = "QUEUE", id = "3c3240983cc54463bf013053215b0426"},
-  {binding = "TEAMS", id = "c1af9d09e91442f5b6eb1252a9fd06de"}
+  {binding = "TEAMS", id = "79309d4d11fb4f5ca3d6be5edca944d4"}
 ]
 
 vars = { QUEUE_BROKER_PASS = "HW5S2][uD**xt\\6U" }

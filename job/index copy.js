@@ -1,6 +1,3 @@
-const { createAppAuth } = require("@octokit/auth-app"); 
-
-
 // Get the cache set by Cloudflare.
 let cache = caches.default
 const errorMsg = { "error" : "There was an error processing request, might be missing / bad headers."};
@@ -64,14 +61,6 @@ async function updateCache(event, job, notCachedResponse) {
 
 
 async function getJob(event) {
-    // Below few lines is for determining if thsi API should return the JST tokens
-    // needed to pull code from the users git Repos.
-    const tokenType = event.request.headers.get("tokenType");
-    var shouldGenerateTeamJWT = false
-    if(tokenType === 'team'){
-      shouldGenerateTeamJWT = true;
-    }
-
     var sessionID = event.request.headers.get("sessionID")
     if(!sessionID){
       sessionID = event.request.headers.get("sessionid")
@@ -87,9 +76,6 @@ async function getJob(event) {
         status: 401,
       })
     }
-
-
-
 //   // Get the cached data using the URL as the key.
 //   var cacheData = await cache.match(new URL(String(event.request.url) + String(sessionID)))
 
@@ -156,14 +142,14 @@ async function getJob(event) {
       var cacheData = await cache.match(new URL(String(event.request.url) + String(sessionID)))
 
       // Check if the cached object exists
-      if (!cacheData){
+      if (!cacheData) {
 
           // Stringify the body for the response and format it for the cache.
           const job = await QUEUE.getWithMetadata(String(sessionID))
           const parsedJob = JSON.parse(job.value)
 
-          
           parsedJob.data.metaData = job.metadata
+
 
 
           var jsonBody = JSON.stringify({"service": "KV", "data": parsedJob, "metaData":job.metadata})
@@ -338,9 +324,6 @@ async function updateJob(event) {
     }
 
 addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
-  const uri = url.pathname;
-  
   if (event.request.method === 'OPTIONS') {
     return event.respondWith(new Response("OK", { 
         headers: {
@@ -351,8 +334,6 @@ addEventListener('fetch', event => {
             "Access-Control-Allow-Headers": "Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, sessionID, serverID, msgID",
 
         }}))
-  } else if (uri.includes("getTeamCode") && event.request.method === 'GET') {
-    return event.respondWith(getTeamCode(event))
   } else if (event.request.method === 'GET'){
     return event.respondWith(getJob(event))
   }else if (event.request.method === 'POST' ){
@@ -418,22 +399,3 @@ async function getFromMessageBrokerService(event, sessionID){
 
   return response = await fetch(new URL(url), init);
 }
-
-
-
-async function generateGitJWT(){
-  var pacmManPrivateKey = "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCu+bfTspK9hVsA\n7s6gM+2R1OJiNQieg1kwL/44gvqg6iq6CXnGACI1njF08w4cR58U04SShj1fYUe8\nq5pmsR5wY27hnwwb4XAAk33Omuzf/mnMzP1xVgy5/Iukv3FDe8Rdm1OXPv3nGQ2D\nADbpGtwY03/qxBw14Cb6Vc8uG2xLIQInWk2sC+cVgosMjOWSo5F6z5tj/GrCl48H\nLIJMhIC4ozgsWOPvS3Du4Ziwgm2kiTDcq6KrYy56K9aVRSkqyKVms0JTbDiopaca\n4RGkAi5o1UPfxh8BTYK0CGFuFxR0d/GhbnWPIUBbyBzKnEDHWaeq/LIw9Q2ddac1\nce5WbvlTAgMBAAECggEAGLGTWOQNw4NreXE6Ze+OKpORs2xqn/xHfP548T7C4izK\nBOFLdz8TlN+TeT7IEgOllsnXHtqlFK3k8uKA8tcyRYgy4NKSYejp5prqGVtR7La5\n9bZEWldbim/ywThnYq+34cIHBQRVzuSBPKiuFy28PCC1H8u3c38D4TZ0+7vRB7UP\n74B3WTtohmnFs0UvhnS2WWO0Xl/e/lXi4cve+CmaRVm1IAAZxYTkKUEvxCwQFNYE\nQhNntNl/rCohg1LqSAyiAkXt2s4qvfr0CD1DLcHXlm9fmy1qIE6Xlt1LOCFIpBbg\nxqAE9pMcz4AHs2236n1E68jfRzqBPpiu/0z37ILysQKBgQDkj0Lp7MlmwswfjF70\naiJE4JsiiO0wpfp9MdvuYWwSnGmDIgVB7QSPx1fGLYCnKQxSxsLYuAW9GVyCBIW2\nyl03JjORu5yEQIIZbGIxXIPu7ormX7yh0d04FHMuqvmYykzBHuu+AktGv92MQ6nB\nlERDtk94D6S/jbiYJ02+12WzqwKBgQDD+46wV6M3nb3AauznHuvzVfm+oaW0qs1c\n6BZ1hrd8x//00fBiKivRkTvLqkmmWalmX27l5igXdaEy7Fo1ijeA/jXIw4sEzyrV\nJIJhNLn4Dx6o04PuV+mjPOJH88m711qGFAz7u+Mx3OHsWi3iwQO/bqmLR/yehUOd\ntibdONGo+QKBgAW7wkXz9qlpQY2ZC9i9wNZRfBLFtI1/3GS/l3DHaNqeqdbsR417\n0J16tqz1/0AyO2joK4McOqiftj5ctq37LZNwleKV/jsjEyBoI55xX63itgFJbYXx\nqcb6XFlTWKeIi5xcljVSAWlo7rnSCLQecAfyztOIMO3NNFA8zCp5ZMe5AoGAUSpv\nz+ybtj7oBTbDYnzV73Nd+Wts+0P5xU6Bbq8act1JzhTcX2tjtmlVwGWIFxLvK2y+\nuwv08rJOzo5AVggmMJAXqkwB2T4LWTbDoIp7spZgdj8TVrSmGGrwtCftFpR78yd+\nsQsBbvcxwfcfJdgWO0QTh5GKuAQtGrYDpn8PpdECgYEAq8B9Ag2OKcwbLmmSGWbi\nIqymYNg/3vi9eU9IqfWsYSLXBfF4xg4wNupUD7gx+do++mAdXQ9fzBk434HDhcL+\n5QMNHEP3w3XCjX+fX9fZ7pvO3EBYJ97oFUghrd3PuDUHbDrjvh1MjGbyjogomqNc\nFk6CVTqt4xyqf2xB7QEsEhw=\n-----END PRIVATE KEY-----\n"
-
-  const auth = createAppAuth({
-    appId: PACMAN_AI_GIT_APP_ID,
-    privateKey: pacmManPrivateKey,
-    clientId: PACMAN_AI_GIT_APP_CLIENT_ID,
-    clientSecret: PACMAN_AI_GIT_APP_CLIENT_SECRET,
-  });
-
-  const appAuthentication = await auth({ type: "app" });
-
-  return appAuthentication;
-}
-
-

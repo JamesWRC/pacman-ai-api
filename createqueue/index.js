@@ -155,7 +155,7 @@ async function checkteam(event, gameSettings) {
             return { "success": true, "teamCreated": false }
         } else {
             // Return false as the password does not match.
-            return { "success": false }
+            return { "success": false, "data": {"b": gameSettings.teamName, "a": JSON.stringify(parsedTeamData)} }
         }
     } else {
 
@@ -260,7 +260,7 @@ async function processRequest(event) {
     const teamData = await checkteam(event, gameSettings);
 
     if (!teamData.success) {
-        return new Response(JSON.stringify({ "succes": false, "msg": "Team name or password is incorrect." }), {
+        return new Response(JSON.stringify({ "succes": false, 'debug': teamData.data, "msg": "Team name or password is incorrect." }), {
             headers: {
                 "access-Control-Allow-Origin": "*",
                 "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
@@ -399,6 +399,9 @@ async function processRequest(event) {
     // Add job to the Queue.
     await addToQueueKV(sessionID, json, metaData);
 
+    // Add data to message broker
+    const messageBrokerMsg = await sendMsgUsingMessageBrokerService(event, json, sessionID);
+
     // Return the gameData..
     var jsonResponse;
     if (teamData.teamCreated) {
@@ -434,6 +437,30 @@ async function notifyQueueBroker(event, sessionID, organization, metaData) {
     return resp
 
 }
+
+async function sendMsgUsingMessageBrokerService(event, jsonData, sessionID){
+  
+  
+    const init = {
+      body: JSON.stringify(jsonData),
+      method: "POST",
+      headers: {
+          "content-type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
+          "Access-Control-Max-Age": "86400",
+          "Access-Control-Allow-Headers": "Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, sessionID, serverID, qbpass, msgID",
+          "qbpass": QUEUE_BROKER_PASS,
+          "msgID": event.request.headers.get("msgID")
+      },
+    }
+    var baseUrl = "http://messagebroker.pacman.ai:8880/addMsg/";
+    var url = "";
+    url = baseUrl + sessionID
+    console.log(url)
+  
+    return response = await fetch(new URL(url), init);
+  }
 
 addEventListener("fetch", event => {
     if (event.request.method === 'POST') {
