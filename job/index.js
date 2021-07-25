@@ -64,13 +64,6 @@ async function updateCache(event, job, notCachedResponse) {
 
 
 async function getJob(event) {
-    // Below few lines is for determining if thsi API should return the JST tokens
-    // needed to pull code from the users git Repos.
-    const tokenType = event.request.headers.get("tokenType");
-    var shouldGenerateTeamJWT = false
-    if(tokenType === 'team'){
-      shouldGenerateTeamJWT = true;
-    }
 
     var sessionID = event.request.headers.get("sessionID")
     if(!sessionID){

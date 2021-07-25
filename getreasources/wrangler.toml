@@ -8,5 +8,8 @@ zone_id = "e07181c90966336c97acf0d0aaffb76d"
 target_type = "js"
 usage_model = "bundled"
 
+kv_namespaces = [
+  {binding = "TEAMS", id = "79309d4d11fb4f5ca3d6be5edca944d4"},
+]
 
 vars = { PACMAN_AI_GAMECODE = "5e5a3ad4b0f842dc1f26fa251611b339979b7349", PACMAN_AI_RUNNER_CODE = "658744979f5eed7f4f6ca70a4cf6d7f2a4b0719f" }

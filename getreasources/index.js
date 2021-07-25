@@ -53,8 +53,14 @@ C8qd4HIzBsdu5phUi9ey3QRfT9YQnLOP1+FaN8coI5Y4dfJJGfJAy852tMKZHF6f
 -----END PRIVATE KEY-----`
 
 addEventListener("fetch", event => {
-
-  event.respondWith(fetchData(event))
+  const url = new URL(event.request.url);
+  const uri = url.pathname;
+  if (uri.includes("getTeamRepo") && event.request.method === 'GET') {
+    event.respondWith(getTeamRepo(event))
+  }else{
+    // Will return the certificates needed and code base of the runners.
+    event.respondWith(fetchData(event))
+  }
 
 })
 
@@ -115,9 +121,13 @@ async function fetchData(event) {
     response.headers.set("X-PACMAN-PRIVATE-KEY", btoa(private_key))
   }
 
-  const GITHUB_RELEASE_HASH = response.headers.get("Content-Disposition").split(repoZipName)[1].split(".zip")[0];
+  var gitHubReleaseHash = response.headers.get("Content-Disposition").split(repoZipName)[1].split(".zip")[0];
+  // Get the hash from the end of the string. for some reason there is random stuff at the start of the string.
+  if(gitHubReleaseHash.length>40){
+    gitHubReleaseHash = gitHubReleaseHash.substr(gitHubReleaseHash.length - 40);
+  }
 
-  response.headers.set("X-GITHUB-RELEASE-VERSION", GITHUB_RELEASE_HASH)
+  response.headers.set("X-GITHUB-RELEASE-VERSION", gitHubReleaseHash)
   response.headers.set("X-PACMAN-ZIPNAME", repoZipName.substring(0, repoZipName.length - 1))
   response.headers.set("Content-Disposition", "attachment; filename=ZippedCodebase.zip")
 
@@ -158,4 +168,94 @@ async function authenticate(event) {
       statusText: "User Not Authenticated.",
       status: 401
     })
+}
+async function getBody(request) {
+  try {
+    const body = await request.text()
+    return JSON.parse(body)
+  } catch (err) {
+    return ""
+  }
+}
+
+async function getTeamRepo(event){
+  // Check if user is authed
+  const authResponse = await authenticate(event)
+  // return authResponse
+  if (authResponse.status !== 200) {
+    // User is not authentocated so reject and show message in auth worker.
+    return authResponse
+  }
+
+  const url = event.request.url
+
+	// Function to parse query strings
+	function getParameterByName(name) {
+		name = name.replace(/[\[\]]/g, '\\$&')
+		name = name.replace(/\//g, '')
+		var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+			results = regex.exec(url)
+
+		if (!results) return null
+		else if (!results[2]) return ''
+		else if (results[2]) {
+			results[2] = results[2].replace(/\//g, '')
+		}
+		
+		return decodeURIComponent(results[2].replace(/\+/g, ' '));
+	}
+
+  var teamName = getParameterByName('teamName')
+    if(teamName.includes('%20')){
+      teamName = teamName.replace('%20', ' ')
+    }
+    const valueAndMetadata = await TEAMS.getWithMetadata(teamName)
+    const value = valueAndMetadata.value
+    const metadata = valueAndMetadata.metadata
+
+    const gitToken = metadata.gitToken;
+    const gitUsername = metadata.gitUsername;
+    const gitRepoName = metadata.gitRepo;
+
+    const gitDefaultBranchURL = `https://api.github.com/repos/${gitUsername}/${gitRepoName}`
+
+
+    const init = {
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "PostmanRuntime/7.26.8",
+        "Authorization": "Bearer " + String(gitToken),
+        'Accept': 'application/vnd.github.v3+json'
+      },
+      method: "GET"
+    }
+
+
+    // get the default branch of the users repo
+    const gitRepoDefaultBranchResponse = await fetch(gitDefaultBranchURL, init)
+    const gitDefaultBranchData = await getBody(gitRepoDefaultBranchResponse);
+    const gitDefaultBranch = gitDefaultBranchData.default_branch
+
+    // get the (latest) default branch commit hash
+    const gitRepoBranchURL = `https://api.github.com/repos/${gitUsername}/${gitRepoName}/branches/${gitDefaultBranch}`
+    const gitBranchDataResponse = await fetch(gitRepoBranchURL, init)
+    const getBranchData = await getBody(gitBranchDataResponse);
+    const gitBranchHash = getBranchData.commit.sha;
+
+    // get the tarball of the default branch's latest commit
+    const gitLatestCommitContentsURL = `https://api.github.com/repos/${gitUsername}/${gitRepoName}/tarball/${gitBranchHash}`
+    const gitRepoFileResponse = await fetch(gitLatestCommitContentsURL, init)
+    var gitRepoFileResponseToReturn = new Response(gitRepoFileResponse.body, gitRepoFileResponse)
+
+    // Set headers with content for the repo
+    gitRepoFileResponseToReturn.headers.set("X-DEFAULT-BRANCH", gitDefaultBranch)
+    gitRepoFileResponseToReturn.headers.set("x-BRANCH-COMMIT-HASH", gitBranchHash)
+
+    // Return the github repo payload with headers of info about the payload.
+    return gitRepoFileResponseToReturn;
+
+
+  // var response = new Response(resp.body, resp)
+
+
 }
