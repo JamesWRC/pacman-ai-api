@@ -206,9 +206,20 @@ async function getTeamRepo(event){
 	}
 
   var teamName = getParameterByName('teamName')
-    if(teamName.includes('%20')){
-      teamName = teamName.replace('%20', ' ')
-    }
+  try{
+    teamName = encodeURIComponent(teamName)
+    console.log("url encode")
+    console.log(decodeURIComponent(teamName))
+
+  }catch(err){
+    return new Response(JSON.stringify({ "success": false, "errorCode": 999, "msg": "System does not like this name. Try another."}), {
+      headers: {
+        "access-Control-Allow-Origin": "*",
+        "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+        "content-type": "application/json;charset=UTF-8",
+      }
+    })
+  }
     const valueAndMetadata = await TEAMS.getWithMetadata(teamName)
     const value = valueAndMetadata.value
     const metadata = valueAndMetadata.metadata

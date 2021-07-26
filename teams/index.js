@@ -56,8 +56,23 @@ async function authenticate(event) {
   try{
 
     const requestBody = await getBody(event.request)
+    var teamName;
+    try{
+      teamName = encodeURIComponent(requestBody.teamName)
+      console.log("url encode")
+      console.log(decodeURIComponent(teamName))
 
-    const team = JSON.parse(await TEAMS.get(requestBody.teamName))
+    }catch(err){
+      return new Response(JSON.stringify({ "success": false, "errorCode": 999, "msg": "System does not like this name. Try another."}), {
+        headers: {
+          "access-Control-Allow-Origin": "*",
+          "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+          "content-type": "application/json;charset=UTF-8",
+        }
+      })
+    }
+
+    const team = JSON.parse(await TEAMS.get(teamName))
 
     if(team.password === requestBody.teamPass){
 
@@ -117,50 +132,51 @@ async function signup(event) {
 
   // This is the temp teamname, the actual team name will be 'selectedName' in the body.
   const tempTeamName = requestBody.teamID
-  const teamName = requestBody.selectedName
+  var teamName = requestBody.selectedName
   const gitToken = requestBody.gitToken
   const gitInstallID = requestBody.gitInstallID
   const gitRepoSelected = requestBody.gitRepoSelected
   const gitUsername = requestBody.gitUsername
 
-  // Check to see if the team exists, then add to cache
-  // if (tempTeamName && !body["teamData"].hasOwnProperty(tempTeamName)) {
-  //   const valueAndMetadata = await TEAMS.getWithMetadata(tempTeamName)
-  //   const value = valueAndMetadata.value
-  //   const metadata = valueAndMetadata.metadata
+  // Check the signup request has the minimum criteria
+  if(!requestBody['selectedName'] || !requestBody['gitToken'] || !requestBody['gitInstallID'] || !requestBody['gitRepoSelected'] || !requestBody['gitUsername'] ){
+    console.log('not enough stuff in body')
+    return new Response(JSON.stringify({ "success": false, "errorCode": 888, "msg": "Signup request is missing the minimum criteria."}), {
+      headers: {
+        "access-Control-Allow-Origin": "*",
+        "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+        "content-type": "application/json;charset=UTF-8",
+      }
+    })
+  }
 
-  //   // add item to cache
-  //   body["teamData"][tempTeamName] = metadata
-
-  //   await addAndUpdateCache(event, body);
-  // }
-
-  // // Check to see if the team exists, then add to cache
-  // if (teamName && !body["teamData"].hasOwnProperty(teamName)){
-  //     const valueAndMetadata = await TEAMS.getWithMetadata(teamName)
-  //     const value = valueAndMetadata.value
-  //     const metadata = valueAndMetadata.metadata
-
-  //     // add item to cache
-  //     body["teamData"][teamName] = metadata
-
-  //     // await addAndUpdateCache(event, body);
-  // }
-  // try {
-  //   if (body["teamData"][tempTeamName]["gitHubAppInstallID"]) {
-  //     // Do nothing
-  //   }
-  // } catch (err) {
-  //   //  Return error of singup timedout
-  //   return new Response(JSON.stringify({ "success": false, "errorCode": 1003, "msg": "Your sign up session timed out. Try again.", }), {
-  //     headers: {
-  //       "access-Control-Allow-Origin": "*",
-  //       "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
-  //       "content-type": "application/json;charset=UTF-8",
-  //     }
-  //   })
-  // }
+  // Check Team blacklisted characters and length
+  const mustNotContainRegex = /^[^~!*()']+$/
+  if(!mustNotContainRegex.test(teamName) || teamName.length < 3 || teamName.length > 20){
+    return new Response(JSON.stringify({ "success": false, "errorCode": 999, "msg": "Team name '" + String(teamName) + "' does not adhere to the naming conventions. Please try another team name."}), {
+      headers: {
+        "access-Control-Allow-Origin": "*",
+        "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+        "content-type": "application/json;charset=UTF-8",
+      }
+    })
+  }
+  
   try {
+    try{
+      teamName = encodeURIComponent(teamName)
+      console.log("url encode")
+      console.log(decodeURIComponent(teamName))
+
+    }catch(err){
+      return new Response(JSON.stringify({ "success": false, "errorCode": 999, "msg": "System does not like this name. Try another."}), {
+        headers: {
+          "access-Control-Allow-Origin": "*",
+          "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+          "content-type": "application/json;charset=UTF-8",
+        }
+      })
+    }
     // Check the tempTeamName and see if the record exists and is waiting to be created and turned into a 'real' team
     const team = await TEAMS.get(teamName)
     // if (body["teamData"].hasOwnProperty(tempTeamName) && body["teamData"][tempTeamName]["gitHubAppInstallID"] === "none") {
@@ -178,7 +194,7 @@ async function signup(event) {
         }
         var defaultMetaData = {
           "createdAt": Date.now(),
-          "teamName": teamName,
+          "teamName": decodeURIComponent(teamName),
           "runningScore": 0,
           "numberOfWins:": 0,
           "numberOfLoses": 0,
@@ -193,7 +209,7 @@ async function signup(event) {
           "gitUsername": gitUsername,
           "countryCode": country
         }
-        body["teamData"][teamName] = defaultMetaData;
+        body["teamData"][decodeURIComponent(teamName)] = defaultMetaData;
         await addAndUpdateCache(event, body)
 
         return new Response(JSON.stringify(createdTeamData), {
@@ -206,11 +222,11 @@ async function signup(event) {
 
       } else {
         console.log("b")
-        console.log(body["teamData"].hasOwnProperty(teamName))
-        console.log(teamName)
-        console.log(body["teamData"][teamName])
+        console.log(body["teamData"].hasOwnProperty(decodeURIComponent(teamName)))
+        console.log(decodeURIComponent(teamName))
+        console.log(body["teamData"][decodeURIComponent(teamName)])
         //  Return error of taken name
-        return new Response(JSON.stringify({ "success": false, "errorCode": 1001, "msg": "Team name '" + String(teamName) + "' is not available. Please try another team name."}), {
+        return new Response(JSON.stringify({ "success": false, "errorCode": 1001, "msg": "Team name '" + String(decodeURIComponent(teamName)) + "' is not available. Please try another team name."}), {
           headers: {
             "access-Control-Allow-Origin": "*",
             "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
@@ -328,7 +344,8 @@ async function getAllTeams(event, forceRegen, showSensitiveData) {
         }
         // Iterate through all teams and add to a dict.
         for (var teamIndex in teamListTemp.keys) {
-          const teamName = teamListTemp.keys[teamIndex].name
+          const teamName = decodeURIComponent(teamListTemp.keys[teamIndex].name)
+
           const teamMetaData = teamListTemp.keys[teamIndex].metadata
           teamsList["teamData"][teamName] = teamMetaData
           teamsList["numTeams"] += 1
@@ -437,7 +454,7 @@ async function createTeam(event, name, isTeampTeam, gitHubData, gitToken, gitIns
 
   var metaData = {
     "createdAt": Date.now(),
-    "teamName": name,
+    "teamName": decodeURIComponent(name),
     "runningScore": 0,
     "numberOfWins:": 0,
     "numberOfLoses": 0,
@@ -472,7 +489,7 @@ async function createTeam(event, name, isTeampTeam, gitHubData, gitToken, gitIns
   const team = await TEAMS.put(String(name), JSON.stringify(data), { metadata: metaData });
   console.log("zzzzzzzz")
   console.log(metaData)
-  return { "success": true, "teamCreated": true, "teamName": String(name), "teamPass": generatedPassword }
+  return { "success": true, "teamCreated": true, "teamName": String(decodeURIComponent(name)), "teamPass": generatedPassword }
 
 }
 
@@ -488,9 +505,9 @@ async function checkteam(event) {
     } while (team);
 
     // Since the team does not exist create a new temp one.
-    const createdTeamData = await createTeam(event, hash, true, null, null, null, null, null);
+    // const createdTeamData = await createTeam(event, hash, true, null, null, null, null, null);
 
-    return new Response(JSON.stringify(createdTeamData), {
+    return new Response(JSON.stringify({ "success": true, "teamCreated": false, "teamName": String(hash), "teamPass": hash }), {
       headers: {
         "access-Control-Allow-Origin": "*",
         "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
@@ -534,7 +551,7 @@ async function gitHubAppHooks(event){
         for(team in teamData['teamData']){
           if(String(teamData['teamData'][team]['gitHubAppInstallID']) === String(installID)){
             tdata = team
-            await TEAMS.delete(String(team))
+            await TEAMS.delete(String(encodeURIComponent(team)))
             await GITHUB.delete(String(installID))
             
           }

@@ -107,38 +107,9 @@ async function generateSession() {
     return hashHex
 }
 
-// Will create a new team and passback a pre generated password.
-async function createTeam(event, gameSettings) {
-    const hash = await generateSession();
-    const generatedPassword = String(hash).substring(0, generatedTeamPasswordMaxLength);
-
-    const metaData = {
-        "createdAt": Date.now(),
-        "teamName": "ThisIsARatherLongTeamName",
-        "runningScore": 0,
-        "numberOfWins:": 0,
-        "numberOfLoses": 0,
-        "numberOfDraws": 0,
-        "numberOfGamesPlayed": 0,
-        "numberOfGamesSubmitted": 0,
-        "numberOfTournamentsPlayed": 0,
-        "lastGameTime": 0,
-        "countryCode": event.request.cf.country
-    }
-
-    const data = {
-        "password": generatedPassword
-    }
-
-    const team = await TEAMS.put(gameSettings.teamName, JSON.stringify(data), { expirationTtl: maxTeamTTL, metadata: metaData });
-
-    return { "success": true, "teamCreated": true, "teamName": gameSettings.teamName, "password": generatedPassword }
-
-}
-
 async function checkteam(event, gameSettings) {
-
-    const team = await TEAMS.get(gameSettings.teamName);
+    const teamName = encodeURIComponent(gameSettings.teamName)
+    const team = await TEAMS.get(teamName);
     var parsedTeamData;
     if (team) {
         parsedTeamData = JSON.parse(team)
@@ -155,14 +126,10 @@ async function checkteam(event, gameSettings) {
             return { "success": true, "teamCreated": false }
         } else {
             // Return false as the password does not match.
-            return { "success": false, "data": {"b": gameSettings.teamName, "a": JSON.stringify(parsedTeamData)} }
+            return { "success": false, "data": "password is incorrect."}
         }
     } else {
-
-        // Since the team does not exist create a new one.
-        const createdTeamData = await createTeam(event, gameSettings);
-
-        return createdTeamData;
+        return { "success": false, "data": "There was some kind of error with fetching team."}
     }
 }
 
@@ -231,14 +198,15 @@ async function processRequest(event) {
 
     // check team names are handled and sed properly.
     if (!gameSettings.teamName) {
-        const names = await getName(event)
-        gameSettings.teamName = names.name;
-        gameSettings.redTeam = names.name;
-    } else {
-        const modifiedName = gameSettings.teamName.replace(/ /g, '_')
-        gameSettings.teamName = modifiedName
-        gameSettings.redTeam = modifiedName;
-    }
+        return new Response(JSON.stringify({ "succes": false,  "msg": "Team name must be specified" }), {
+            headers: {
+                "access-Control-Allow-Origin": "*",
+                "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+                // "access-Control-Request-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+                "content-type": "application/json;charset=UTF-8",
+            }
+        })
+    } 
 
     // Check organization is handeled aand set properly. 
     if (!gameSettings.organization) {
@@ -282,7 +250,17 @@ async function processRequest(event) {
         })
     }
 
-
+  // Check the signup request has the minimum criteria
+  if(!gameSettings['redTeam'] || !gameSettings['blueTeam'] || !gameSettings['gitInstallID'] || !gameSettings['gitRepoSelected'] || !gameSettings['gitUsername'] ){
+    console.log('not enough stuff in body')
+    return new Response(JSON.stringify({ "success": false, "errorCode": 777, "msg": "Failed to create game, missing the minimum criteria."}), {
+      headers: {
+        "access-Control-Allow-Origin": "*",
+        "access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, contenttype, access-control-allow-origin",
+        "content-type": "application/json;charset=UTF-8",
+      }
+    })
+  }
 
 
 
@@ -309,7 +287,7 @@ async function processRequest(event) {
     } else {
         organization = gameSettings.organization;
         redTeam = gameSettings.redTeam; // User team.
-        blueTeam = gameSettings.blueTeam; // Our teams.
+        blueTeam = gameSettings.blueTeam; // Opponant teams.
         randomSeed = gameSettings.randomSeed;
         mapNumber = gameSettings.map;
         numberOfGames = gameSettings.numberOfGames;
