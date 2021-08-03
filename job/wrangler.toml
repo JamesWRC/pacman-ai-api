@@ -3,7 +3,7 @@ type = "webpack"
 
 account_id = "adbbba9f3192397bbf24db22cb72f221"
 workers_dev = true
-routes = ["job.pacman.ai/*", "api.pacman.ai/job/*"]
+routes = ["job.pacman.ai/*", "api.pacman.ai/job/*", "api.pacman.ai/getqueuepos/"]
 zone_id = "e07181c90966336c97acf0d0aaffb76d"
 target_type = "js"
 usage_model = "bundled"

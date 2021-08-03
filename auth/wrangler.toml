@@ -1,9 +1,9 @@
 name = "auth"
-type = "javascript"
+type = "webpack"
 
 account_id = "adbbba9f3192397bbf24db22cb72f221"
 workers_dev = true
-routes = ["api.pacman.ai/auth*", "api.pacman.ai/auth/*", "auth.pacman.ai/*"]
+routes = ["api.pacman.ai/auth*", "api.pacman.ai/auth/*", "auth.pacman.ai/*", "api.pacman.ai/auth/generatePAT"]
 zone_id = "e07181c90966336c97acf0d0aaffb76d"
 target_type = "js"
 usage_model = "bundled"
@@ -11,3 +11,5 @@ usage_model = "bundled"
 kv_namespaces = [
   {binding = "LICENSE", id = "68ee03af488842159a98fdff93c38d50"}
 ]
+
+vars = { PACMAN_AI_GIT_APP_ID = "129118", PACMAN_AI_GIT_APP_CLIENT_ID = "Iv1.d612d371f96e9048", PACMAN_AI_GIT_APP_CLIENT_SECRET = "cbd2450e94b343eabf34c4c09fa5782379f858d9", PACMAN_GIT_APP_INSTALL_ID = "18572357"}

@@ -15,17 +15,63 @@ addEventListener('fetch', event => {
  * @param {Request} request
  */
 async function handleRequest(request) {
-  const adjective = adjectiveList[Math.floor(Math.random() * adjectiveList.length)];
 
-  const noun = nounList[Math.floor(Math.random() * nounList.length)];
+  const url = request.url
+
+	// Function to parse query strings
+	function getParameterByName(name) {
+		name = name.replace(/[\[\]]/g, '\\$&')
+		name = name.replace(/\//g, '')
+		var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+			results = regex.exec(url)
+
+		if (!results) return null
+		else if (!results[2]) return ''
+		else if (results[2]) {
+			results[2] = results[2].replace(/\//g, '')
+		}
+		
+		return decodeURIComponent(results[2].replace(/\+/g, ' '));
+	}
+
+
+  var amount = 1;
+  if(getParameterByName("amount")){
+    amount = getParameterByName("amount");
+  }
+
+  var nameList = [];
+
+  for(var i=0; i < amount; i++){
+      const adjective = adjectiveList[Math.floor(Math.random() * adjectiveList.length)];
+
+      const noun = nounList[Math.floor(Math.random() * nounList.length)];
+
 
   const name = adjective + "-" + noun;
+
 
   // ModifiedName is replacing all spaces with an _ so applications can use them without any
   // unforseen issues. such as in a command line
   const modifiedName = name.replace(/ /g, '_')
+    nameList.push(modifiedName);
+  }
 
-  return new Response(JSON.stringify({"name": modifiedName, "nouns": nounList.length, "adjectives":adjectiveList.length}), { 
+
+
+  var namesToreturn = "";
+  var retType = "";
+  if(nameList.length === 1){
+    namesToreturn = nameList[0];
+    retType = "single"
+  }else{
+    namesToreturn = nameList;
+    retType = "list"
+  }
+
+
+
+  return new Response(JSON.stringify({"name": namesToreturn, "nouns": nounList.length, "adjectives":adjectiveList.length, 'amount': amount, 'type': retType}), { 
           headers: { 
             "content-type": "application/json",
             "Access-Control-Allow-Origin": "*",

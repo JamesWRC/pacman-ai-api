@@ -254,13 +254,15 @@ async function getTeamRepo(event){
     const gitBranchHash = getBranchData.commit.sha;
 
     // get the tarball of the default branch's latest commit
-    const gitLatestCommitContentsURL = `https://api.github.com/repos/${gitUsername}/${gitRepoName}/tarball/${gitBranchHash}`
+    const gitLatestCommitContentsURL = `https://api.github.com/repos/${gitUsername}/${gitRepoName}/zipball/${gitBranchHash}`
     const gitRepoFileResponse = await fetch(gitLatestCommitContentsURL, init)
     var gitRepoFileResponseToReturn = new Response(gitRepoFileResponse.body, gitRepoFileResponse)
 
     // Set headers with content for the repo
     gitRepoFileResponseToReturn.headers.set("X-DEFAULT-BRANCH", gitDefaultBranch)
-    gitRepoFileResponseToReturn.headers.set("x-BRANCH-COMMIT-HASH", gitBranchHash)
+    gitRepoFileResponseToReturn.headers.set("X-BRANCH-COMMIT-HASH", gitBranchHash)
+
+    gitRepoFileResponseToReturn.headers.set('Content-Disposition', 'attachment; filename="team.files"');
 
     // Return the github repo payload with headers of info about the payload.
     return gitRepoFileResponseToReturn;

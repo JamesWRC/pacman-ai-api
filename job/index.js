@@ -65,12 +65,34 @@ async function updateCache(event, job, notCachedResponse) {
 
 async function getJob(event) {
 
+  const url = event.request.url
+
+	// Function to parse query strings
+	function getParameterByName(name) {
+		name = name.replace(/[\[\]]/g, '\\$&')
+		name = name.replace(/\//g, '')
+		var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+			results = regex.exec(url)
+
+		if (!results) return null
+		else if (!results[2]) return ''
+		else if (results[2]) {
+			results[2] = results[2].replace(/\//g, '')
+		}
+		
+		return decodeURIComponent(results[2].replace(/\+/g, ' '));
+	}
+
+
     var sessionID = event.request.headers.get("sessionID")
     if(!sessionID){
-      sessionID = event.request.headers.get("sessionid")
+      sessionID = getParameterByName('sessionID')
     }
-
-    if(!event.request.headers.get("serverID")){
+    var serverID = event.request.headers.get("serverID")
+    if(!serverID){
+      serverID = getParameterByName('serverID')
+    }
+    if(!serverID){
       return new Response(JSON.stringify({"error": 'Bad Auth, check docs.'}), {
         headers: {
           "access-Control-Allow-Origin": "*",
@@ -107,7 +129,7 @@ async function getJob(event) {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
             "Access-Control-Max-Age": "86400",
-            "Access-Control-Allow-Headers": "Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, sessionID, serverID, msgID",
+            "Access-Control-Allow-Headers": "Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, sessionID, serverID, msgID, X-Cache",
             "X-Cache": "MISS",
             "msgID": event.request.headers.get("msgID")
             
@@ -344,8 +366,8 @@ addEventListener('fetch', event => {
             "Access-Control-Allow-Headers": "Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, sessionID, serverID, msgID",
 
         }}))
-  } else if (uri.includes("getTeamCode") && event.request.method === 'GET') {
-    return event.respondWith(getTeamCode(event))
+  }else if (uri.includes('getqueuepos') && (event.request.method === 'GET' || event.request.method === 'OPTIONS')){
+    return event.respondWith(getQueuePos(event))
   } else if (event.request.method === 'GET'){
     return event.respondWith(getJob(event))
   }else if (event.request.method === 'POST' ){
@@ -427,6 +449,75 @@ async function generateGitJWT(){
   const appAuthentication = await auth({ type: "app" });
 
   return appAuthentication;
+}
+
+async function getQueuePos(event){
+  const sessionIDDataReceived = event.request.headers.get("sessionID");
+  if (!(sessionIDDataReceived.indexOf(':') > -1)){
+
+    return new Response(JSON.stringify({"error": "No Org - sessionID pair sent, sessionID needs to be in a ORG:SESSIONID fashion."}), { 
+      headers: {
+          "content-type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
+          "Access-Control-Max-Age": "86400",
+          "Access-Control-Allow-Headers": "Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, sessionID, serverID, msgID",
+
+      }})
+  }
+
+  const org = sessionIDDataReceived.split(":")[0]
+  const sessionID = sessionIDDataReceived // Due to...reasons...the sessionID sent to the QueueBroker must also include the org:session id pair...
+
+  const init = {
+    method: "GET",
+    headers: {
+        "content-type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
+        "Access-Control-Max-Age": "86400",
+        "Access-Control-Allow-Headers": "Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, sessionID, serverID, msgID",
+        
+        "qbpass": QUEUE_BROKER_PASS
+    },
+}
+
+console.log(`http://queuebroker.pacman.ai:8080/queuepos/${org}/${sessionID}`)
+const response = await fetch(`http://queuebroker.pacman.ai:8080/queuepos/${org}/${sessionID}`, init);
+const resp = await gatherResponse(response)
+console.log(resp)
+return new Response(JSON.stringify({'success':resp.success, 'queueData': { 'queuePosition':resp.queuePosition, 'inQueue':resp.inQueue, 'serverPool':resp.serverPool}}), {
+  headers: {
+    "content-type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
+    "Access-Control-Max-Age": "86400",
+    "Access-Control-Allow-Headers": "Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, sessionID, serverID, msgID",
+    
+  }
+})
+
+}
+
+async function gatherResponse(response) {
+  const { headers } = response
+  const contentType = headers.get("content-type") || ""
+  if (contentType.includes("application/json")) {
+      // return "Yes"
+      return JSON.parse(JSON.stringify(await response.json()))
+  }
+  else if (contentType.includes("application/text")) {
+      return "yes1"
+      return await response.text()
+  }
+  else if (contentType.includes("text/html")) {
+      return "yes2 (indecates an error)"
+      return await response.text()
+  }
+  else {
+      return "yes5"
+      return await response.text()
+  }
 }
 
 

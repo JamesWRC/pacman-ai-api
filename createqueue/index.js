@@ -251,7 +251,7 @@ async function processRequest(event) {
     }
 
   // Check the signup request has the minimum criteria
-  if(!gameSettings['redTeam'] || !gameSettings['blueTeam'] || !gameSettings['gitInstallID'] || !gameSettings['gitRepoSelected'] || !gameSettings['gitUsername'] ){
+  if(!gameSettings['redTeam'] || !gameSettings['blueTeam']){
     console.log('not enough stuff in body')
     return new Response(JSON.stringify({ "success": false, "errorCode": 777, "msg": "Failed to create game, missing the minimum criteria."}), {
       headers: {
@@ -290,7 +290,7 @@ async function processRequest(event) {
         blueTeam = gameSettings.blueTeam; // Opponant teams.
         randomSeed = gameSettings.randomSeed;
         mapNumber = gameSettings.map;
-        numberOfGames = gameSettings.numberOfGames;
+        numberOfGames = parseInt(gameSettings.numberOfGames);
         agentCode = gameSettings.agentCode;
         agentRequirements = gameSettings.agentRequirements
     }
