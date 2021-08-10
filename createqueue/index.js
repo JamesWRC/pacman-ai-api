@@ -295,6 +295,12 @@ async function processRequest(event) {
         agentRequirements = gameSettings.agentRequirements
     }
 
+    if(gameSettings.organization === "DEMO" || gameSettings.redTeam === "demo"){
+        gameType = "demo"
+        gameSettings.organization = "demo"
+        gameSettings.redTeam = "demo"
+    }
+
 
     // Data checking
     if (!mapNumber) {

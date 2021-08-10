@@ -123,7 +123,7 @@ async function getJob(event) {
 
       const mbsBody = await getBody(messageBrokerMsg);
       
-      const mbsResponse = new Response(JSON.stringify({"service": "MB", "data":mbsBody}), { 
+      var mbsResponse = new Response(JSON.stringify({"service": "MB", "data":mbsBody}), { 
           headers: { 
             "content-type": "application/json",
             "Access-Control-Allow-Origin": "*",
@@ -136,9 +136,75 @@ async function getJob(event) {
           },
           statusText: "not cached"
         })
-      if(mbsBody.completed){
-        mbsResponse.headers.set("X-Cache", "HIT")
+        console.log("GETTING UPDATE STATS")
+        console.log(JSON.stringify(mbsBody))
+        const sessionData = await QUEUE.getWithMetadata(String(sessionID))
+        const session = JSON.parse(sessionData.value)
+        // var session = JSON.parse(await QUEUE.get(String(sessionID)))
 
+        if(session.completed){
+          console.log("1")
+          if(session.updatedTeamData){
+            console.log("2")
+
+            return mbsResponse
+          }else{
+            console.log("3")
+
+            session['updatedTeamData'] = true
+          }
+
+        console.log("GAME FINISHED STATS")
+        console.log(session.data.gameData[0])
+        mbsResponse.headers.set("X-Cache", "HIT")
+        console.log(mbsBody.data)
+        const teamName = encodeURIComponent(session.data.gameData[0].redTeam);
+        console.log(teamName)
+
+        const team = await TEAMS.getWithMetadata(teamName);
+        const teamBody = JSON.parse(team.value)
+        var teamMetadata = team.metadata;
+        var wins=0;
+        var loses=0;
+        var draws=0;
+        for(var i = 0; i < session.data.gameResults.length; i++){
+          const score = session.data.gameResults[i].gameScore
+          if(score > 0){
+            wins+=1;
+          }else if(score < 0){
+            loses += 1
+          }else if(score === 0){
+            draws += 1;
+          }
+        }
+        // teamMetadata.runningScore = parseInt(teamMetadata.runningScore) + mbsBody.data.runningScore
+        // teamMetadata.numberOfWins = parseInt(teamMetadata.numberOfWins) + wins
+        // teamMetadata.numberOfLoses = parseInt(teamMetadata.numberOfLoses) + loses
+        // teamMetadata.numberOfDraws = parseInt(teamMetadata.numberOfDraws) + loses
+        // teamMetadata.numberOfGamesPlayed = parseInt(teamMetadata.numberOfGamesPlayed) + 1
+        // teamMetadata.numberOfGamesSubmitted = parseInt(teamMetadata.numberOfGamesSubmitted) + 1        
+        teamMetadata.runningScore += session.data.runningScore
+        teamMetadata.numberOfWins += wins
+        teamMetadata.numberOfLoses += loses
+        teamMetadata.numberOfDraws += draws
+        teamMetadata.numberOfGamesPlayed += 1
+        teamMetadata.numberOfGamesSubmitted += 1
+        teamMetadata.lastGameTime = Date.now()
+        const updatedQueue = await QUEUE.put(String(sessionID), JSON.stringify(session), { expirationTtl: valueTTL, metadata: sessionData.metadata });
+        const teams = await TEAMS.put(String(teamName), JSON.stringify(teamBody), { metadata: teamMetadata });
+        mbsResponse = new Response(JSON.stringify({"service": "MB", "data":session}), { 
+          headers: { 
+            "content-type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
+            "Access-Control-Max-Age": "86400",
+            "Access-Control-Allow-Headers": "Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, sessionID, serverID, msgID, X-Cache",
+            "X-Cache": "HIT",
+            "msgID": event.request.headers.get("msgID")
+            
+          },
+          statusText: "cached"
+        })
         event.waitUntil(cache.put(new URL(String(event.request.url) + String(sessionID)), mbsResponse.clone()))
       }
       return mbsResponse
@@ -366,7 +432,11 @@ addEventListener('fetch', event => {
             "Access-Control-Allow-Headers": "Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, sessionID, serverID, msgID",
 
         }}))
+  }else if (uri.includes('leaveQueue') && (event.request.method === 'GET' || event.request.method === 'OPTIONS')){
+    return event.respondWith(leaveQueue(event))
+
   }else if (uri.includes('getqueuepos') && (event.request.method === 'GET' || event.request.method === 'OPTIONS')){
+
     return event.respondWith(getQueuePos(event))
   } else if (event.request.method === 'GET'){
     return event.respondWith(getJob(event))
@@ -521,3 +591,53 @@ async function gatherResponse(response) {
 }
 
 
+
+
+
+async function leaveQueue(event){
+  const sessionIDDataReceived = event.request.headers.get("sessionID");
+  if (!(sessionIDDataReceived.indexOf(':') > -1)){
+
+    return new Response(JSON.stringify({"error": "No Org - sessionID pair sent, sessionID needs to be in a ORG:SESSIONID fashion."}), { 
+      headers: {
+          "content-type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
+          "Access-Control-Max-Age": "86400",
+          "Access-Control-Allow-Headers": "Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, sessionID, serverID, msgID",
+
+      }})
+  }
+
+  const org = sessionIDDataReceived.split(":")[0]
+  const sessionID = sessionIDDataReceived // Due to...reasons...the sessionID sent to the QueueBroker must also include the org:session id pair...
+
+  const init = {
+    method: "GET",
+    headers: {
+        "content-type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
+        "Access-Control-Max-Age": "86400",
+        "Access-Control-Allow-Headers": "Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, sessionID, serverID, msgID",
+        
+        "qbpass": QUEUE_BROKER_PASS
+    },
+}
+
+console.log(`http://queuebroker.pacman.ai:8080/leaveQueue/${org}/${sessionID}`)
+const response = await fetch(`http://queuebroker.pacman.ai:8080/leaveQueue/${org}/${sessionID}`, init);
+const resp = await gatherResponse(response)
+console.log(resp)
+return new Response(JSON.stringify({'success':resp.success, 'msg': resp.msg}), {
+  headers: {
+    "content-type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
+    "Access-Control-Max-Age": "86400",
+    "Access-Control-Allow-Headers": "Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, sessionID, serverID, msgID",
+    
+  }
+})
+
+}

@@ -12,7 +12,7 @@ async function handleRequest(event) {
   }else{
     const queuebrokerRequest = await getJobFromQueueBrokerServer(event);
 
-    if(queuebrokerRequest.status !== 200){
+    if(queuebrokerRequest.status !== 200 && queuebrokerRequest.status !== 401){
 
       return await getJobsFromKV(event);
 
@@ -72,6 +72,21 @@ async function getJobFromQueueBrokerServer(event){
   var serverID = 'UNKNOWN' + String(Math.floor((Math.random() * 9999999) + 1));
   if(event.request.headers.get("serverID") ){
     serverID = event.request.headers.get("serverID") || 'NONE'
+  }
+  if(serverID === "NONE"){
+    return new Response(JSON.stringify({'error': 'No auth header.'}),
+      {
+        headers: {
+          "content-type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
+          "Access-Control-Max-Age": "86400",
+          "Access-Control-Allow-Headers": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, gameData, contentType, sessionID, serverID"
+        },
+        method: 'GET',
+        statusText: "User Not Authenticated.",
+        status: 401
+      })
   }
   const init = {
     headers: {
