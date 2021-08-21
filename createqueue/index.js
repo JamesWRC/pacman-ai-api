@@ -109,6 +109,9 @@ async function generateSession() {
 
 async function checkteam(event, gameSettings) {
     const teamName = encodeURIComponent(gameSettings.teamName)
+    if(teamName === "demo"){
+        return { "success": true, "teamCreated": false }
+    }
     const team = await TEAMS.get(teamName);
     var parsedTeamData;
     if (team) {
@@ -297,8 +300,10 @@ async function processRequest(event) {
 
     if(gameSettings.organization === "DEMO" || gameSettings.redTeam === "demo"){
         gameType = "demo"
-        gameSettings.organization = "demo"
+        organization = "DEMO"
+        gameSettings.organization = "DEMO"
         gameSettings.redTeam = "demo"
+        redTeam = "demo"
     }
 
 
