@@ -11,7 +11,6 @@ The Javascript based API for the pacman service.
 To fully understand why this project is so cool see main repo here:
 https://github.com/JamesWRC/pacman-ai
 
-🇦🇺 Fun fact. 2 Aussie universities use this to help teach agent based AI.
 
 ## Why chose Cloudflare?
 - Utilize serverless infrastructure hosted on the edge (200+ cities)
@@ -33,5 +32,5 @@ As you can probably tell nmy code isnt clean in the slightest (yeah i know). It 
 - More about cloud computing (thanks Bezos ( ͡° ͜ʖ ͡°) )
 - APIs integrating with browsers (CORS policies)
 - Frontend development (Tailwind CSS is pretty damn cool)
-- Learned Cloudflares values about privacy and security (love ya work... hire me?)
+- Learned Cloudflares values about privacy and security.
 
